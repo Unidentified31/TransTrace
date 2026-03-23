@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TransTrace - Translation Session</title>
+    <link rel="stylesheet" href="participant-styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen active">
+            <div class="container">
+                <div class="logo">TT</div>
+                <p class="loading-text" data-i18n="loading">Loading your translation session...</p>
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <!-- Error Screen -->
+        <div id="error-screen" class="screen">
+            <div class="container">
+                <div class="error-icon">⚠️</div>
+                <h1 data-i18n="error-title">Session Not Found</h1>
+                <p class="subtitle" id="error-message" data-i18n="error-invalid-link">
+                    This link is no longer valid. It may have expired, already been used, or does not exist.
+                </p>
+            </div>
+        </div>
+
+        <!-- Layout Select Screen -->
+        <div id="layout-screen" class="screen">
+            <div class="container-wide">
+                <h1 data-i18n="layout-title">Translation Setup</h1>
+                <p class="subtitle" data-i18n="layout-subtitle">Choose your preferences for the translation workspace</p>
+
+                <!-- Language Switcher -->
+                <div class="option-section">
+                    <h3 data-i18n="language-select">Select Language</h3>
+                    <div class="language-switcher">
+                        <button class="lang-btn active" data-lang="en">🇬🇧 English</button>
+                        <button class="lang-btn" data-lang="ar">🇸🇦 العربية</button>
+                        <button class="lang-btn" data-lang="es">🇪🇸 Español</button>
+                        <button class="lang-btn" data-lang="fr">🇫🇷 Français</button>
+                        <button class="lang-btn" data-lang="it">🇮🇹 Italiano</button>
+                    </div>
+                </div>
+
+                <!-- Font Picker -->
+                <div class="option-section">
+                    <h3 data-i18n="font-select">Choose Font</h3>
+                    <div class="font-picker">
+                        <button class="font-btn active" data-font="serif">
+                            <div class="font-preview serif">Aa</div>
+                            <span data-i18n="font-serif">Serif</span>
+                        </button>
+                        <button class="font-btn" data-font="sans">
+                            <div class="font-preview sans">Aa</div>
+                            <span data-i18n="font-sans">Sans Serif</span>
+                        </button>
+                        <button class="font-btn" data-font="mono">
+                            <div class="font-preview mono">Aa</div>
+                            <span data-i18n="font-mono">Monospace</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Direction Toggle -->
+                <div class="option-section">
+                    <h3 data-i18n="direction-select">Text Direction</h3>
+                    <div class="direction-toggle">
+                        <button class="dir-btn active" data-direction="ltr">
+                            <span>→</span>
+                            <span data-i18n="direction-ltr">Left to Right</span>
+                        </button>
+                        <button class="dir-btn" data-direction="rtl">
+                            <span>←</span>
+                            <span data-i18n="direction-rtl">Right to Left</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Layout Picker -->
+                <div class="option-section">
+                    <h3 data-i18n="layout-select">Workspace Layout</h3>
+                    <div class="layout-picker">
+                        <button class="layout-card active" data-layout="horizontal">
+                            <div class="layout-icon horizontal">
+                                <div class="icon-box"></div>
+                                <div class="icon-box"></div>
+                            </div>
+                            <span data-i18n="layout-side-by-side">Side by Side</span>
+                        </button>
+                        <button class="layout-card" data-layout="vertical">
+                            <div class="layout-icon vertical">
+                                <div class="icon-box"></div>
+                                <div class="icon-box"></div>
+                            </div>
+                            <span data-i18n="layout-top-bottom">Top & Bottom</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Device Notice -->
+                <div id="device-notice" class="notice" style="display: none;">
+                    <div class="notice-content">
+                        <div class="notice-icon" id="device-icon">📱</div>
+                        <h4 id="device-title">Device Check</h4>
+                        <p id="device-message"></p>
+                    </div>
+                </div>
+
+                <!-- Think Aloud Notice -->
+                <div id="mic-notice" class="notice" style="display: none;">
+                    <div class="notice-content">
+                        <div class="notice-icon">🎤</div>
+                        <h4 data-i18n="mic-required">Microphone Required</h4>
+                        <p data-i18n="mic-description">This study requires think-aloud recording. Please enable your microphone.</p>
+                        <button id="enable-mic-btn" class="btn btn-primary" data-i18n="mic-enable">Enable Microphone</button>
+                        <div id="mic-status" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <button id="continue-layout-btn" class="btn btn-primary btn-large" data-i18n="continue">Continue</button>
+            </div>
+        </div>
+
+        <!-- Consent Screen -->
+        <div id="consent-screen" class="screen">
+            <div class="container">
+                <h1 data-i18n="consent-title">Informed Consent</h1>
+                <p class="subtitle" data-i18n="consent-subtitle">Please read the following carefully before proceeding.</p>
+
+                <div class="consent-box">
+                    <div id="consent-text" class="consent-content"></div>
+                </div>
+
+                <div class="data-notice">
+                    <strong data-i18n="data-notice-title">Data Collected:</strong>
+                    <span data-i18n="data-notice-text">Keystroke timing and sequences, and optional demographic information. No names, emails, or identifying information are stored.</span>
+                </div>
+
+                <div class="button-group">
+                    <button id="decline-btn" class="btn btn-secondary" data-i18n="consent-decline">I Do Not Wish to Participate</button>
+                    <button id="accept-btn" class="btn btn-primary btn-large" data-i18n="consent-accept">I Agree to Participate</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Declined Screen -->
+        <div id="declined-screen" class="screen">
+            <div class="container">
+                <div class="info-icon">ℹ️</div>
+                <h1 data-i18n="declined-title">Thank You</h1>
+                <p class="subtitle" data-i18n="declined-message">You have chosen not to participate. You may close this window.</p>
+            </div>
+        </div>
+
+        <!-- Demographics Screen -->
+        <div id="demographics-screen" class="screen">
+            <div class="container">
+                <h1 data-i18n="demographics-title">Background Information</h1>
+                <p class="subtitle" data-i18n="demographics-subtitle">All fields are optional. This helps contextualize the research.</p>
+
+                <form id="demographics-form" class="form">
+                    <!-- Gender -->
+                    <div class="form-group">
+                        <label data-i18n="demo-gender">Gender</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="gender" value="female">
+                                <span data-i18n="demo-gender-female">Female</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="gender" value="male">
+                                <span data-i18n="demo-gender-male">Male</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="gender" value="non-binary">
+                                <span data-i18n="demo-gender-nonbinary">Non-binary</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="gender" value="other">
+                                <span data-i18n="demo-gender-other">Other</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="gender" value="prefer-not-to-say">
+                                <span data-i18n="demo-gender-prefer">Prefer not to say</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Age -->
+                    <div class="form-group">
+                        <label for="age" data-i18n="demo-age">Age</label>
+                        <input type="number" id="age" min="18" max="100" placeholder="25">
+                    </div>
+
+                    <!-- Native Language -->
+                    <div class="form-group">
+                        <label for="native-language" data-i18n="demo-native-lang">Native Language</label>
+                        <input type="text" id="native-language" placeholder="e.g., English">
+                    </div>
+
+                    <!-- Target Language -->
+                    <div class="form-group">
+                        <label for="target-language" data-i18n="demo-target-lang">Target Language</label>
+                        <input type="text" id="target-language" placeholder="e.g., Spanish">
+                    </div>
+
+                    <!-- Experience -->
+                    <div class="form-group">
+                        <label for="experience" data-i18n="demo-experience">Years of Translation Experience</label>
+                        <select id="experience">
+                            <option value="" data-i18n="demo-experience-select">Select experience level</option>
+                            <option value="<1" data-i18n="demo-experience-less1">Less than 1 year</option>
+                            <option value="1-3" data-i18n="demo-experience-1-3">1–3 years</option>
+                            <option value="3-5" data-i18n="demo-experience-3-5">3–5 years</option>
+                            <option value="5-10" data-i18n="demo-experience-5-10">5–10 years</option>
+                            <option value="10+" data-i18n="demo-experience-10plus">10+ years</option>
+                        </select>
+                    </div>
+
+                    <!-- Education -->
+                    <div class="form-group">
+                        <label for="education" data-i18n="demo-education">College Level</label>
+                        <select id="education">
+                            <option value="" data-i18n="demo-education-select">Select education level</option>
+                            <option value="college" data-i18n="demo-education-college">College Level</option>
+                            <option value="graduated" data-i18n="demo-education-graduated">Graduated</option>
+                            <option value="postgraduate" data-i18n="demo-education-postgrad">Postgraduate</option>
+                        </select>
+                    </div>
+
+                    <!-- Major -->
+                    <div class="form-group">
+                        <label for="major" data-i18n="demo-major">Major / Field of Study</label>
+                        <input type="text" id="major" placeholder="e.g., Translation Studies, Linguistics">
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button" id="back-from-demo-btn" class="btn btn-secondary" data-i18n="back">Back</button>
+                        <button type="submit" class="btn btn-primary btn-large" data-i18n="start-translating">Start Translating</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Translation Workspace -->
+        <div id="workspace-screen" class="screen">
+            <div class="workspace-header">
+                <div class="header-left">
+                    <div class="logo-small">TT</div>
+                    <span class="project-title" id="project-title">Translation Session</span>
+                </div>
+                <div class="timer" id="timer">00:00</div>
+                <div class="header-right">
+                    <button id="record-btn" class="btn btn-record" style="display: none;">
+                        <span class="recording-dot"></span>
+                        <span id="record-text" data-i18n="record-start">Start Recording</span>
+                    </button>
+                    <button id="submit-btn" class="btn btn-primary" data-i18n="submit-translation">Submit Translation</button>
+                </div>
+            </div>
+
+            <div id="workspace-content" class="workspace-content horizontal">
+                <!-- Source Panel -->
+                <div class="panel source-panel">
+                    <div class="panel-header">
+                        <h3 data-i18n="source-text-header">Source Text</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div id="source-text" class="source-text font-serif"></div>
+                        
+                        <!-- MT Output Panel (only in post-edit mode) -->
+                        <div id="mt-panel" class="mt-panel" style="display: none;">
+                            <div class="mt-header">
+                                <span class="mt-badge" data-i18n="mt-output">Machine Translation</span>
+                            </div>
+                            <div id="mt-text" class="mt-text"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Translation Panel -->
+                <div class="panel translation-panel">
+                    <div class="panel-header">
+                        <h3 data-i18n="translation-header">Your Translation</h3>
+                        <span id="mode-badge" class="mode-badge" style="display: none;"></span>
+                    </div>
+                    <div class="panel-body">
+                        <textarea 
+                            id="translation-editor" 
+                            class="translation-editor font-serif" 
+                            dir="ltr"
+                            spellcheck="false"
+                        ></textarea>
+                        <div class="editor-footer">
+                            <span id="word-count" class="word-count">0 words</span>
+                            <span id="save-status" class="save-status">Auto-saving...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Survey Screen -->
+        <div id="survey-screen" class="screen">
+            <div class="container">
+                <h1 data-i18n="survey-title">Quick Survey</h1>
+                <p class="subtitle" data-i18n="survey-subtitle">Please answer the following questions about your translation experience.</p>
+
+                <form id="survey-form" class="form">
+                    <div id="survey-questions"></div>
+
+                    <div class="button-group">
+                        <button type="button" id="skip-survey-btn" class="btn btn-secondary" data-i18n="survey-skip">Skip</button>
+                        <button type="submit" class="btn btn-primary btn-large" data-i18n="survey-submit">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Thank You Screen -->
+        <div id="thankyou-screen" class="screen">
+            <div class="container">
+                <div class="success-icon">✓</div>
+                <h1 data-i18n="thankyou-title">Thank You</h1>
+                <p class="subtitle" data-i18n="thankyou-message">Your translation has been recorded.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="participant.js"></script>
+</body>
+</html>
