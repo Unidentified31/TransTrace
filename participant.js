@@ -1,4 +1,4 @@
-// TransTrace Participant Interface - Part 1: Core Setup & Translations
+/ TransTrace Participant Interface - Part 1: Core Setup & Translations
 // Complete production-ready participant web application
 
 // ============================================================================
@@ -393,11 +393,20 @@ const translations = {
 
 class TransTraceParticipant {
     constructor() {
+        // Use Vercel API routes when deployed, fallback to relative path
+        const isProduction = window.location.hostname.includes('vercel.app') || 
+                            window.location.hostname.includes('trans-trace');
+        
         this.config = {
-            apiBaseUrl: window.location.origin + '/api/participate',
+            apiBaseUrl: isProduction 
+                ? window.location.origin + '/api/participate'
+                : '/api/participate',
+            supabaseUrl: 'https://itrqgtemcmhpzqqayldo.supabase.co',
+            supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0cnFndGVtY21ocHpxcWF5bGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzE3MDIsImV4cCI6MjA4ODM0NzcwMn0.XTsvGDO2AJeyHzMvEa58z6M-VdKMAgBVdtTBkqaMxMo',
             autoSaveInterval: 30000,
             keystrokeBufferSize: 50,
-            pauseThreshold: 2000
+            pauseThreshold: 2000,
+            useDirectSupabase: false // Set to true to bypass Vercel API (for testing)
         };
         
         this.state = {
@@ -464,21 +473,42 @@ class TransTraceParticipant {
         try {
             console.log('Loading session for token:', this.state.token);
             
-            const response = await fetch(`${this.config.apiBaseUrl}/${this.state.token}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            let data;
             
-            if (!response.ok) {
-                if (response.status === 404 || response.status === 410) {
-                    throw new Error('Session not found or expired');
+            // Try Vercel API first, fallback to direct Supabase
+            if (!this.config.useDirectSupabase) {
+                try {
+                    const response = await fetch(`${this.config.apiBaseUrl}/${this.state.token}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        data = await response.json();
+                    } else if (response.status === 404 || response.status === 410) {
+                        throw new Error('Session not found or expired');
+                    } else {
+                        console.warn('Vercel API failed, trying direct Supabase...');
+                        this.config.useDirectSupabase = true;
+                    }
+                } catch (apiError) {
+                    console.warn('Vercel API error, trying direct Supabase:', apiError);
+                    this.config.useDirectSupabase = true;
                 }
-                throw new Error(`Failed to load session: ${response.statusText}`);
             }
             
-            const data = await response.json();
+            // Direct Supabase fallback
+            if (this.config.useDirectSupabase || !data) {
+                console.log('Using direct Supabase connection...');
+                data = await this.loadSessionFromSupabase();
+            }
+            
+            if (!data) {
+                throw new Error('Failed to load session configuration');
+            }
+            
             this.state.sessionConfig = data;
             this.state.sessionId = data.session_id;
             this.config.pauseThreshold = data.pause_threshold_ms || 2000;
@@ -498,17 +528,149 @@ class TransTraceParticipant {
         }
     }
     
+    async loadSessionFromSupabase() {
+        try {
+            // 1. Get participant link by token
+            const linkResponse = await fetch(
+                `${this.config.supabaseUrl}/rest/v1/participant_links?token=eq.${this.state.token}&select=*`,
+                {
+                    headers: {
+                        'apikey': this.config.supabaseAnonKey,
+                        'Authorization': `Bearer ${this.config.supabaseAnonKey}`
+                    }
+                }
+            );
+            
+            if (!linkResponse.ok) {
+                throw new Error('Failed to fetch participant link');
+            }
+            
+            const links = await linkResponse.json();
+            
+            if (!links || links.length === 0) {
+                throw new Error('Session not found or expired');
+            }
+            
+            const link = links[0];
+            
+            // Check if already used
+            if (link.used_at) {
+                throw new Error('This link has already been used');
+            }
+            
+            // 2. Get project details
+            const projectResponse = await fetch(
+                `${this.config.supabaseUrl}/rest/v1/projects?id=eq.${link.project_id}&select=*`,
+                {
+                    headers: {
+                        'apikey': this.config.supabaseAnonKey,
+                        'Authorization': `Bearer ${this.config.supabaseAnonKey}`
+                    }
+                }
+            );
+            
+            if (!projectResponse.ok) {
+                throw new Error('Failed to fetch project');
+            }
+            
+            const projects = await projectResponse.json();
+            const project = projects[0];
+            
+            // 3. Create session
+            const sessionResponse = await fetch(
+                `${this.config.supabaseUrl}/rest/v1/sessions`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'apikey': this.config.supabaseAnonKey,
+                        'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        project_id: link.project_id,
+                        participant_code: link.participant_code || `P${Date.now()}`,
+                        source_text: project.source_text,
+                        status: 'in_progress',
+                        started_at: new Date().toISOString()
+                    })
+                }
+            );
+            
+            if (!sessionResponse.ok) {
+                throw new Error('Failed to create session');
+            }
+            
+            const sessions = await sessionResponse.json();
+            const session = sessions[0];
+            
+            // 4. Mark link as used
+            await fetch(
+                `${this.config.supabaseUrl}/rest/v1/participant_links?id=eq.${link.id}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': this.config.supabaseAnonKey,
+                        'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        used_at: new Date().toISOString(),
+                        session_id: session.id
+                    })
+                }
+            );
+            
+            // Return formatted config
+            return {
+                session_id: session.id,
+                project_title: project.title,
+                source_text: project.source_text,
+                translation_mode: project.translation_mode || 'from_scratch',
+                mt_output: project.mt_output,
+                think_aloud_enabled: project.think_aloud_enabled || false,
+                consent_text: project.consent_text,
+                survey_questions: project.survey_questions || [],
+                pause_threshold_ms: 2000,
+                required_device: project.required_device || 'any'
+            };
+            
+        } catch (error) {
+            console.error('Direct Supabase load failed:', error);
+            throw error;
+        }
+    }
+    
     async sendDeviceInfo() {
         const deviceInfo = this.getDeviceInfo();
         
         try {
-            await fetch(`${this.config.apiBaseUrl}/${this.state.token}/device`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(deviceInfo)
-            });
+            if (!this.config.useDirectSupabase) {
+                await fetch(`${this.config.apiBaseUrl}/${this.state.token}/device`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(deviceInfo)
+                });
+            } else {
+                // Update session with device info
+                await fetch(
+                    `${this.config.supabaseUrl}/rest/v1/sessions?id=eq.${this.state.sessionId}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': this.config.supabaseAnonKey,
+                            'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            device_type: deviceInfo.device_type,
+                            device_os: deviceInfo.device_os
+                        })
+                    }
+                );
+            }
         } catch (error) {
             console.error('Failed to send device info:', error);
         }
@@ -652,7 +814,7 @@ class TransTraceParticipant {
         
         notice.style.display = 'block';
         
-        const isCompatible = 
+        const isCompatible =
             (required === 'desktop' && deviceInfo.device_type === 'desktop') ||
             (required === 'mobile_tablet' && deviceInfo.device_type === 'mobile');
         
@@ -667,7 +829,7 @@ class TransTraceParticipant {
             notice.classList.add('error');
             icon.textContent = '⚠️';
             title.textContent = 'Device Incompatible';
-            message.textContent = required === 'desktop' 
+            message.textContent = required === 'desktop'
                 ? this.t('device-incompatible-desktop')
                 : this.t('device-incompatible-mobile');
             
@@ -914,13 +1076,30 @@ class TransTraceParticipant {
         this.state.keystrokeBuffer = [];
         
         try {
-            await fetch(`${this.config.apiBaseUrl}/${this.state.token}/keystrokes`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ keystrokes })
-            });
+            if (!this.config.useDirectSupabase) {
+                await fetch(`${this.config.apiBaseUrl}/${this.state.token}/keystrokes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ keystrokes })
+                });
+            } else {
+                // Direct Supabase insert
+                await fetch(
+                    `${this.config.supabaseUrl}/rest/v1/keystrokes`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'apikey': this.config.supabaseAnonKey,
+                            'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify(keystrokes)
+                    }
+                );
+            }
             
             console.log(`Sent ${keystrokes.length} keystrokes`);
         } catch (error) {
@@ -942,7 +1121,7 @@ class TransTraceParticipant {
             const elapsed = Date.now() - this.state.sessionStartTime;
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            document.getElementById('timer').textContent = 
+            document.getElementById('timer').textContent =
                 `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }, 1000);
     }
@@ -1047,23 +1226,64 @@ class TransTraceParticipant {
         
         // Submit session
         try {
-            const response = await fetch(`${this.config.apiBaseUrl}/${this.state.token}/submit`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
+            if (!this.config.useDirectSupabase) {
+                const response = await fetch(`${this.config.apiBaseUrl}/${this.state.token}/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        final_translation: finalTranslation,
+                        duration_seconds: duration,
+                        demographics: this.state.demographics,
+                        consent_timestamp: this.state.consentTimestamp,
+                        audio_url: audioUrl,
+                        completed_at: new Date().toISOString()
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to submit translation');
+                }
+            } else {
+                // Direct Supabase update
+                const updateData = {
                     final_translation: finalTranslation,
                     duration_seconds: duration,
-                    demographics: this.state.demographics,
-                    consent_timestamp: this.state.consentTimestamp,
-                    audio_url: audioUrl,
+                    status: 'completed',
                     completed_at: new Date().toISOString()
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to submit translation');
+                };
+                
+                // Add demographics if provided
+                if (this.state.demographics.gender) updateData.participant_gender = this.state.demographics.gender;
+                if (this.state.demographics.age) updateData.participant_age = parseInt(this.state.demographics.age);
+                if (this.state.demographics.nativeLang) updateData.participant_native_language = this.state.demographics.nativeLang;
+                if (this.state.demographics.targetLang) updateData.participant_target_language = this.state.demographics.targetLang;
+                if (this.state.demographics.experience) updateData.participant_experience = this.state.demographics.experience;
+                if (this.state.demographics.education) updateData.participant_education = this.state.demographics.education;
+                if (this.state.demographics.major) updateData.participant_major = this.state.demographics.major;
+                
+                if (this.state.consentTimestamp) {
+                    updateData.consent_given = true;
+                    updateData.consent_timestamp = this.state.consentTimestamp;
+                }
+                
+                if (audioUrl) {
+                    updateData.think_aloud_url = audioUrl;
+                }
+                
+                await fetch(
+                    `${this.config.supabaseUrl}/rest/v1/sessions?id=eq.${this.state.sessionId}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': this.config.supabaseAnonKey,
+                            'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(updateData)
+                    }
+                );
             }
             
             console.log('Translation submitted successfully');
@@ -1085,17 +1305,41 @@ class TransTraceParticipant {
     async uploadAudio() {
         try {
             const audioBlob = new Blob(this.state.audioChunks, { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('audio', audioBlob, `${this.state.sessionId}.webm`);
             
-            const response = await fetch(`${this.config.apiBaseUrl}/${this.state.token}/audio`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                return data.audio_url;
+            if (!this.config.useDirectSupabase) {
+                const formData = new FormData();
+                formData.append('audio', audioBlob, `${this.state.sessionId}.webm`);
+                
+                const response = await fetch(`${this.config.apiBaseUrl}/${this.state.token}/audio`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.audio_url;
+                }
+            } else {
+                // Direct Supabase Storage upload
+                const fileName = `${this.state.sessionId}.webm`;
+                const filePath = `think-aloud-recordings/${fileName}`;
+                
+                const uploadResponse = await fetch(
+                    `${this.config.supabaseUrl}/storage/v1/object/think-aloud-recordings/${fileName}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                            'Content-Type': 'audio/webm'
+                        },
+                        body: audioBlob
+                    }
+                );
+                
+                if (uploadResponse.ok) {
+                    // Return public URL
+                    return `${this.config.supabaseUrl}/storage/v1/object/public/${filePath}`;
+                }
             }
             
             return null;
@@ -1257,13 +1501,31 @@ class TransTraceParticipant {
         
         // Send survey responses
         try {
-            await fetch(`${this.config.apiBaseUrl}/${this.state.token}/survey`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ survey_responses: responses })
-            });
+            if (!this.config.useDirectSupabase) {
+                await fetch(`${this.config.apiBaseUrl}/${this.state.token}/survey`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ survey_responses: responses })
+                });
+            } else {
+                // Direct Supabase update
+                await fetch(
+                    `${this.config.supabaseUrl}/rest/v1/sessions?id=eq.${this.state.sessionId}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': this.config.supabaseAnonKey,
+                            'Authorization': `Bearer ${this.config.supabaseAnonKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            survey_responses: responses
+                        })
+                    }
+                );
+            }
         } catch (error) {
             console.error('Failed to submit survey:', error);
         }
@@ -1280,4 +1542,3 @@ document.addEventListener('DOMContentLoaded', () => {
     window.transTraceApp = new TransTraceParticipant();
     window.transTraceApp.init();
 });
-
