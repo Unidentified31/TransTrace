@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/participate/:token",
+      "destination": "/index.html"
+    }
+  ]
+}
