@@ -1,4 +1,4 @@
-/ TransTrace Participant Interface - Part 1: Core Setup & Translations
+// TransTrace Participant Interface
 // Complete production-ready participant web application
 
 // ============================================================================
