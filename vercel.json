@@ -1,10 +1,10 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/participate/([^/]+)",
-      "dest": "/index.html"
+      "source": "/participate/:token",
+      "destination": "/index.html"
     }
   ]
 }
