@@ -3,6 +3,30 @@
     {
       "source": "/participate/:token",
       "destination": "/index.html"
+    },
+    {
+      "source": "/api/participate/:token",
+      "destination": "/api/participate/get-session"
+    },
+    {
+      "source": "/api/participate/:token/device",
+      "destination": "/api/participate/device"
+    },
+    {
+      "source": "/api/participate/:token/keystrokes",
+      "destination": "/api/participate/keystrokes"
+    },
+    {
+      "source": "/api/participate/:token/submit",
+      "destination": "/api/participate/submit"
+    },
+    {
+      "source": "/api/participate/:token/audio",
+      "destination": "/api/participate/audio"
+    },
+    {
+      "source": "/api/participate/:token/survey",
+      "destination": "/api/participate/survey"
     }
   ]
 }
