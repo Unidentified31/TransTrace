@@ -1,4 +1,16 @@
-// TransTrace Participant Interface
+// TEMPORARY FILE FOR REVIEW
+// Paste the participant.js content from GitHub here
+// This file will be deleted after review
+
+// Instructions:
+// 1. Copy the entire participant.js from GitHub
+// 2. Paste it here, replacing this comment
+// 3. I'll review it and tell you what needs to be fixed
+// 4. Then delete this file from Xcode
+
+
+
+// TransTrace Participant Interface - Part 1: Core Setup & Translations
 // Complete production-ready participant web application
 
 // ============================================================================
@@ -393,14 +405,9 @@ const translations = {
 
 class TransTraceParticipant {
     constructor() {
-        // Use Vercel API routes when deployed, fallback to relative path
-        const isProduction = window.location.hostname.includes('vercel.app') || 
-                            window.location.hostname.includes('trans-trace');
-        
+        // Always use Vercel API routes
         this.config = {
-            apiBaseUrl: isProduction 
-                ? window.location.origin + '/api/participate'
-                : '/api/participate',
+            apiBaseUrl: '/api/participate',
             supabaseUrl: 'https://itrqgtemcmhpzqqayldo.supabase.co',
             supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0cnFndGVtY21ocHpxcWF5bGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzE3MDIsImV4cCI6MjA4ODM0NzcwMn0.XTsvGDO2AJeyHzMvEa58z6M-VdKMAgBVdtTBkqaMxMo',
             autoSaveInterval: 30000,
