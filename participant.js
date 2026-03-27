@@ -413,7 +413,7 @@ class TransTraceParticipant {
             autoSaveInterval: 30000,
             keystrokeBufferSize: 50,
             pauseThreshold: 2000,
-            useDirectSupabase: false // Set to true to bypass Vercel API (for testing)
+            useDirectSupabase: true // Set to true to bypass Vercel API (for testing)
         };
         
         this.state = {
