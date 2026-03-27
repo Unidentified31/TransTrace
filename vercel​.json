@@ -1,6 +1,6 @@
 {
-  "buildCommand": null,
-  "outputDirectory": ".",
+  "buildCommand": "bash build.sh",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/participate/:token",
